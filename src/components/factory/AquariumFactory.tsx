@@ -93,8 +93,10 @@ export default function AquariumFactory() {
     dirLight.position.set(2, 4, 2)
     dirLight.castShadow = true
     scene.add(dirLight)
-    const pointLight = new THREE.PointLight(0x5df2d6, 0, 6)
-    pointLight.position.set(0, 1.2, 0)
+    // 水草ライトアップ用の光源。頭の高さに近いと顔を下から強く照らして
+    // 白飛びしてしまうため、足元の水槽付近に低く配置する。
+    const pointLight = new THREE.PointLight(0x5df2d6, 0, 4)
+    pointLight.position.set(0, 0.3, 0)
     scene.add(pointLight)
 
     // 水槽カプセル（ガラス）
@@ -429,7 +431,7 @@ export default function AquariumFactory() {
     }
     const lit = feedCount >= 30
     state.plantsGroup.visible = lit
-    state.pointLight.intensity = lit ? 1.4 : 0
+    state.pointLight.intensity = lit ? 0.8 : 0
     state.creaturesGroup.visible = feedCount >= 50
   }, [feedCount, loading])
 
