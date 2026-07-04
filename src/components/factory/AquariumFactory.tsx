@@ -297,18 +297,22 @@ export default function AquariumFactory() {
         if (vrmHeadBone) {
           vrmHeadBone.getWorldPosition(maskHeadOffset)
         }
-        // 素体(FBX)側に元々きちんとしたベース顔テクスチャ・口があるため、
-        // お面側のベース肌メッシュと口内メッシュは非表示にし、
-        // 目・眉・アイラインなどのディテールのみ重ねる。
-        // （SKINはこのモデルでは白く覆ってしまい、FaceMouthはあごの下に肥大表示されるため）
-        const HIDDEN_MASK_PARTS = ['_SKIN', 'FACEMOUTH']
+        // このモデルはSKIN(肌)マテリアルのテクスチャUVが正しく展開されておらず、
+        // そのままだと真っ白に描画されてしまう。お面として視認できるよう
+        // 肌色のティントを直接載せて「お面をつけている」ことが分かるようにする。
+        // FaceMouth(口内)メッシュはあごの下に肥大表示される不具合があるため非表示のまま。
         vrm.scene.traverse((child) => {
           const mesh = child as THREE.Mesh
           if (!(mesh as any).isMesh) return
           const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
-          if (mats.some((mat) => HIDDEN_MASK_PARTS.some((part) => mat?.name?.toUpperCase().includes(part)))) {
-            mesh.visible = false
-          }
+          mats.forEach((mat) => {
+            const name = mat?.name?.toUpperCase() ?? ''
+            if (name.includes('FACEMOUTH')) {
+              mesh.visible = false
+            } else if (name.includes('_SKIN') && (mat as THREE.MeshStandardMaterial).color) {
+              ;(mat as THREE.MeshStandardMaterial).color.setHex(0xf0dcc8)
+            }
+          })
         })
         scene.add(vrm.scene)
 
@@ -469,6 +473,15 @@ export default function AquariumFactory() {
 
       {!loading && !error && (
         <div className="absolute bottom-3 left-1/2 flex -translate-x-1/2 flex-wrap items-center justify-center gap-2 px-2">
+          <button
+            disabled={!built}
+            onClick={() => setMotionState('idle')}
+            className={`rig-panel rounded-sm border px-3 py-1.5 text-[11px] font-semibold uppercase tracking-wider disabled:opacity-30 ${
+              motion === 'idle' ? 'border-gold text-gold' : 'border-rig-border text-gray-300 hover:border-gold/60'
+            }`}
+          >
+            stop
+          </button>
           {(['walk', 'run', 'jump'] as MotionName[]).map((m) => (
             <button
               key={m}

@@ -26,7 +26,7 @@ export default function DeepSeaSection({ onDepthChange }: { onDepthChange: (dept
           setZoneCount((z) => Math.min(z + 1, 400))
         }
       },
-      { rootMargin: '800px' },
+      { rootMargin: '300px' },
     )
     observer.observe(sentinel)
     return () => observer.disconnect()
