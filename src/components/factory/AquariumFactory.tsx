@@ -3,8 +3,10 @@ import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import type { VRM } from '@pixiv/three-vrm'
 import { findBoneByName, loadFBX, loadVRM } from '../../lib/three/loaders'
+import { stripRootMotion } from '../../lib/three/motion'
 import { animateDojoSchool, createDojoSchool, type DojoFish } from '../../lib/three/dojo'
 import { usePortfolio } from '../../lib/PortfolioContext'
+import { useLanguage } from '../../i18n/LanguageContext'
 import type { Expression, MotionName } from '../../lib/types'
 
 const BASE = import.meta.env.BASE_URL
@@ -53,12 +55,12 @@ export default function AquariumFactory() {
   const containerRef = useRef<HTMLDivElement>(null)
   const sceneRef = useRef<Scene3D | null>(null)
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState(false)
   const [motion, setMotionState] = useState<MotionName>('idle')
-  const [maskOn, setMaskOn] = useState(true)
   const [expression, setExpressionState] = useState<Expression>('neutral')
 
   const { feedCount, jumpSignal, thanksSignal, triggerJump, factoryEnergy, totalEnergy } = usePortfolio()
+  const { t } = useLanguage()
   const built = factoryEnergy >= totalEnergy
 
   // --- 初期化: レンダラー/シーン/モデルの読み込み（マウント時に一度だけ） ---
@@ -272,17 +274,17 @@ export default function AquariumFactory() {
 
         const mixer = new THREE.AnimationMixer(body)
         const actions: Partial<Record<MotionName, THREE.AnimationAction>> = {}
-        const bind = (name: MotionName, clip: THREE.Group) => {
+        const bind = (name: MotionName, clip: THREE.Group, inPlace: boolean) => {
           const anim = clip.animations[0]
           if (!anim) return
-          const action = mixer.clipAction(anim, body)
+          const action = mixer.clipAction(inPlace ? stripRootMotion(anim) : anim, body)
           action.enabled = true
           actions[name] = action
         }
-        bind('idle', idleClip)
-        bind('walk', walkClip)
-        bind('run', runClip)
-        bind('jump', jumpClip)
+        bind('idle', idleClip, false)
+        bind('walk', walkClip, true)
+        bind('run', runClip, true)
+        bind('jump', jumpClip, true)
         actions.idle?.play()
 
         // AIVtuber方式: マスクはFBXの骨に親子付けせず、シーン直下に独立して置き、
@@ -320,7 +322,7 @@ export default function AquariumFactory() {
         setLoading(false)
       } catch (err) {
         console.error('[AquariumFactory] failed to load models', err)
-        if (!disposed) setError('3Dモデルの読み込みに失敗しました。public/models 内のファイルを確認してください。')
+        if (!disposed) setError(true)
       }
     })()
 
@@ -344,6 +346,7 @@ export default function AquariumFactory() {
     if (!state || !state.body) return
 
     state.body.visible = built
+    if (state.vrm) state.vrm.scene.visible = built
     if (built && !state.built) {
       state.buildStart = performance.now()
     }
@@ -364,12 +367,6 @@ export default function AquariumFactory() {
     })
     nextAction.reset().fadeIn(0.25).play()
   }, [motion, loading])
-
-  // お面の着脱（未ビルド時はモデル自体が非表示なのでお面も連動して隠す）
-  useEffect(() => {
-    const state = sceneRef.current
-    if (state?.vrm) state.vrm.scene.visible = maskOn && built
-  }, [maskOn, built, loading])
 
   // 表情変更
   useEffect(() => {
@@ -456,17 +453,17 @@ export default function AquariumFactory() {
 
       {loading && !error && (
         <div className="absolute inset-0 flex items-center justify-center bg-rig-bg/80 text-sm text-gray-400">
-          3D水槽をビルド中...
+          {t('buildingTank')}
         </div>
       )}
       {error && (
         <div className="absolute inset-0 flex items-center justify-center bg-rig-bg/90 p-6 text-center text-sm text-live">
-          {error}
+          {t('loadError')}
         </div>
       )}
       {!loading && !error && !built && (
         <div className="absolute left-1/2 top-4 -translate-x-1/2 rounded-sm border border-gold/50 bg-rig-panel/90 px-3 py-1.5 text-xs text-gold">
-          エネルギー不足: Timelineで年代をクリックして水を流し込もう
+          {t('energyMissing')}
         </div>
       )}
 
@@ -484,13 +481,6 @@ export default function AquariumFactory() {
               {m}
             </button>
           ))}
-          <button
-            disabled={!built}
-            onClick={() => setMaskOn((v) => !v)}
-            className="rig-panel rounded-sm border border-rig-border px-3 py-1.5 text-[11px] font-semibold text-gray-300 hover:border-gold/60 disabled:opacity-30"
-          >
-            お面着脱
-          </button>
           {(['happy', 'angry', 'sad', 'relaxed'] as Expression[]).map((exp) => (
             <button
               key={exp}

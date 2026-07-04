@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { PortfolioProvider, usePortfolio } from './lib/PortfolioContext'
+import { ThemeProvider } from './lib/ThemeContext'
+import { LanguageProvider } from './i18n/LanguageContext'
 import StatusBar from './components/layout/StatusBar'
 import SceneSwitcher from './components/layout/SceneSwitcher'
 import SceneStage from './components/layout/SceneStage'
@@ -11,11 +13,8 @@ import ConciergeMascot from './components/mascot/ConciergeMascot'
 import DeepSeaSection from './components/deepsea/DeepSeaSection'
 
 function AppShell() {
-  const { activeScene, setDepth } = usePortfolio()
+  const { setDepth } = usePortfolio()
   const [chatCollapsed, setChatCollapsed] = useState(false)
-
-  const scene =
-    activeScene === 'profile' ? <ProfileScene /> : activeScene === 'timeline' ? <TimelineScene /> : <FactoryScene />
 
   return (
     <div className="flex h-screen flex-col bg-rig-bg">
@@ -24,7 +23,13 @@ function AppShell() {
         <SceneSwitcher />
         <div data-scroll-root className="relative flex-1 overflow-y-auto">
           <div className="h-full">
-            <SceneStage>{scene}</SceneStage>
+            <SceneStage
+              scenes={{
+                profile: <ProfileScene />,
+                timeline: <TimelineScene />,
+                factory: <FactoryScene />,
+              }}
+            />
           </div>
           <DeepSeaSection onDepthChange={setDepth} />
         </div>
@@ -38,8 +43,12 @@ function AppShell() {
 
 export default function App() {
   return (
-    <PortfolioProvider>
-      <AppShell />
-    </PortfolioProvider>
+    <ThemeProvider>
+      <LanguageProvider>
+        <PortfolioProvider>
+          <AppShell />
+        </PortfolioProvider>
+      </LanguageProvider>
+    </ThemeProvider>
   )
 }

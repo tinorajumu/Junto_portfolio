@@ -4,6 +4,10 @@ export default {
   theme: {
     extend: {
       colors: {
+        // 値はダークモード基準の固定色。ライトモードの上書きはsrc/styles/index.cssで
+        // 生成後のユーティリティクラスを直接ターゲットして行う
+        // （CSS変数 + Tailwindのalpha-value機構がビルド時に静的展開されてしまい、
+        //   実行時のテーマ切替に追従しなかったため）。
         rig: {
           bg: '#0a0d0f',
           panel: '#0d1214',

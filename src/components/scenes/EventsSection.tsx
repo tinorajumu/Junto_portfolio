@@ -1,14 +1,15 @@
 import { events } from '../../data/events'
+import { useLanguage } from '../../i18n/LanguageContext'
 
 export default function EventsSection() {
+  const { t } = useLanguage()
+
   return (
     <div className="mt-10">
-      <h2 className="font-display text-sm tracking-widest text-gray-500">EVENTS / イベント出演情報</h2>
+      <h2 className="font-display text-sm tracking-widest text-gray-500">{t('events')}</h2>
 
       {events.length === 0 ? (
-        <div className="mt-3 rig-panel rounded-sm border p-4 text-sm text-gray-500">
-          現在予定されているイベントはありません。決まり次第ここに追加されます。
-        </div>
+        <div className="mt-3 rig-panel rounded-sm border p-4 text-sm text-gray-500">{t('noEvents')}</div>
       ) : (
         <div className="mt-3 space-y-3">
           {events.map((event) => (
@@ -33,7 +34,7 @@ export default function EventsSection() {
                   rel="noreferrer"
                   className="mt-2 inline-block text-xs font-semibold text-gold hover:underline"
                 >
-                  詳細を見る ↗
+                  {t('eventDetail')}
                 </a>
               )}
             </div>

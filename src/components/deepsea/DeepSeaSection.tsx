@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { usePortfolio } from '../../lib/PortfolioContext'
+import { useLanguage } from '../../i18n/LanguageContext'
 import GlowFish from '../shared/GlowFish'
 
 const ZONE_HEIGHT = 640
@@ -11,6 +12,7 @@ function zoneBackground(zoneIndex: number) {
 
 export default function DeepSeaSection({ onDepthChange }: { onDepthChange: (depth: number) => void }) {
   const { feedbackLog } = usePortfolio()
+  const { t } = useLanguage()
   const [zoneCount, setZoneCount] = useState(2)
   const rootRef = useRef<HTMLDivElement>(null)
   const sentinelRef = useRef<HTMLDivElement>(null)
@@ -49,10 +51,8 @@ export default function DeepSeaSection({ onDepthChange }: { onDepthChange: (dept
   return (
     <div ref={rootRef} className="relative w-full">
       <div className="border-t border-bioluminescent/20 bg-depth-shallow/40 px-6 py-6 text-center">
-        <p className="font-display text-xs tracking-[0.3em] text-bioluminescent">深海エリア突入</p>
-        <p className="mt-1 text-xs text-gray-400">
-          スクロールするほど深く潜ります。過去の訪問者が放流した感想魚がここに眠っています。
-        </p>
+        <p className="font-display text-xs tracking-[0.3em] text-bioluminescent">{t('deepSeaTitle')}</p>
+        <p className="mt-1 text-xs text-gray-400">{t('deepSeaDesc')}</p>
       </div>
 
       {Array.from({ length: zoneCount }).map((_, zoneIndex) => (

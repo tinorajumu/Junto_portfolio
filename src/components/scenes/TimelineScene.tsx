@@ -1,13 +1,17 @@
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 import gsap from 'gsap'
 import { timeline } from '../../data/timeline'
 import { usePortfolio } from '../../lib/PortfolioContext'
+import { useLanguage } from '../../i18n/LanguageContext'
 
 export default function TimelineScene() {
   const { pourEnergy, unlockedEras, factoryEnergy, totalEnergy, setActiveScene } = usePortfolio()
+  const { lang, t } = useLanguage()
   const containerRef = useRef<HTMLDivElement>(null)
   const trunkRef = useRef<HTMLDivElement>(null)
   const cardRefs = useRef<Record<string, HTMLButtonElement | null>>({})
+  const [selectedEraId, setSelectedEraId] = useState<string | null>(null)
+  const selectedEra = timeline.find((e) => e.id === selectedEraId) ?? null
 
   const handleFlow = (eraId: string, energy: number) => {
     const container = containerRef.current
@@ -62,13 +66,11 @@ export default function TimelineScene() {
 
   return (
     <div ref={containerRef} className="relative h-full overflow-y-auto px-6 py-10 sm:px-12">
-      <p className="font-display text-xs tracking-[0.3em] text-gold">SCENE 2 / TIMELINE</p>
-      <h2 className="mt-3 font-display text-3xl font-bold text-white">水流連動型 年表</h2>
-      <p className="mt-2 max-w-xl text-sm text-gray-400">
-        年代をクリックすると、水流がファクトリーへ流れ落ちます。全て流し込むとScene 3で3D水槽が起動します。
-      </p>
+      <p className="font-display text-xs tracking-[0.3em] text-gold">{t('timelineSceneLabel')}</p>
+      <h2 className="mt-3 font-display text-3xl font-bold text-white">{t('timelineTitle')}</h2>
+      <p className="mt-2 max-w-xl text-sm text-gray-400">{t('timelineDesc')}</p>
 
-      <div className="relative mt-10 flex max-w-2xl flex-col gap-4 pb-28">
+      <div className="relative mt-10 flex max-w-2xl flex-col gap-4">
         {timeline.map((era) => {
           const done = unlockedEras.includes(era.id)
           return (
@@ -77,28 +79,49 @@ export default function TimelineScene() {
               ref={(el) => {
                 cardRefs.current[era.id] = el
               }}
-              onClick={() => !done && handleFlow(era.id, era.energy)}
-              disabled={done}
+              onClick={() => {
+                setSelectedEraId(era.id)
+                if (!done) handleFlow(era.id, era.energy)
+              }}
               className={`rig-panel relative w-full rounded-sm border p-4 text-left transition-colors ${
                 done ? 'border-bioluminescent/60 bg-depth-mid/40' : 'hover:border-gold/60'
-              }`}
+              } ${selectedEraId === era.id ? 'ring-1 ring-gold' : ''}`}
             >
               <div className="flex items-center justify-between">
-                <span className="font-display text-xs tracking-widest text-gold">{era.year}</span>
-                {done && <span className="text-xs text-bioluminescent">流し込み済み ✓</span>}
+                <span className="font-display text-xs tracking-widest text-gold">{era.year[lang]}</span>
+                {done && <span className="text-xs text-bioluminescent">{t('timelinePoured')}</span>}
               </div>
-              <p className="mt-1 font-display text-lg font-semibold text-white">{era.title}</p>
-              <p className="mt-1 text-xs text-gray-400">{era.description}</p>
+              <p className="mt-1 font-display text-lg font-semibold text-white">{era.title[lang]}</p>
+              <p className="mt-1 text-xs text-gray-400">{era.description[lang]}</p>
             </button>
           )
         })}
       </div>
 
-      <div className="sticky bottom-4 mt-10 flex max-w-2xl items-center gap-4">
+      <div className="mt-6 max-w-2xl rig-panel rounded-sm border p-4">
+        {selectedEra ? (
+          <>
+            <p className="font-display text-xs tracking-widest text-gold">{t('timelineSelected')}</p>
+            <p className="mt-1 font-display text-lg font-semibold text-white">{selectedEra.title[lang]}</p>
+            <p className="mt-1 text-xs text-gray-400">{selectedEra.description[lang]}</p>
+            {selectedEra.images && (
+              <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+                {selectedEra.images.map((src, i) => (
+                  <img key={i} src={src} className="h-20 w-full rounded-sm object-cover sm:h-24" alt="" />
+                ))}
+              </div>
+            )}
+          </>
+        ) : (
+          <p className="text-sm text-gray-500">{t('timelineSelectHint')}</p>
+        )}
+      </div>
+
+      <div className="mb-8 mt-6 flex max-w-2xl items-center gap-4">
         <div ref={trunkRef} className="h-3 w-3 shrink-0 rounded-full bg-gold shadow-[0_0_10px_rgba(203,161,53,0.8)]" />
         <div className="flex-1 rig-panel rounded-sm border p-3">
           <div className="flex items-center justify-between text-xs text-gray-400">
-            <span>FACTORY ENERGY</span>
+            <span>{t('factoryEnergy')}</span>
             <span>
               {factoryEnergy} / {totalEnergy}
             </span>
@@ -114,7 +137,7 @@ export default function TimelineScene() {
               onClick={() => setActiveScene('factory')}
               className="mt-3 rounded-sm bg-gold px-3 py-1.5 text-xs font-semibold text-black hover:bg-gold/80"
             >
-              ファクトリーを見る →
+              {t('viewFactory')}
             </button>
           )}
         </div>

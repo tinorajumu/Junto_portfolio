@@ -1,9 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { fallbackResponses, mascotRules } from '../../data/mascotRules'
 import { getVoiceUrl } from '../../lib/voice'
+import { useLanguage } from '../../i18n/LanguageContext'
 import type { Expression } from '../../lib/types'
 
-const INTRO_TEXT = 'こんにちは！このサイトの案内人です。何か話しかけてみてください。'
+const INTRO_TEXT = {
+  ja: 'こんにちは！AIコンパニオンの白河零です。何か話しかけてみてください。',
+  en: "Hi! I'm Shirakawa Rei, your AI companion. Try saying something to me.",
+}
 
 const EXPRESSION_FACE: Record<Expression, string> = {
   happy: '(＾▽＾)',
@@ -35,9 +39,10 @@ type SpeechRecognitionLike = {
 }
 
 export default function ConciergeMascot() {
+  const { lang, t } = useLanguage()
   const [open, setOpen] = useState(false)
   const [input, setInput] = useState('')
-  const [message, setMessage] = useState(INTRO_TEXT)
+  const [message, setMessage] = useState(INTRO_TEXT[lang])
   const [expression, setExpression] = useState<Expression>('happy')
   const [listening, setListening] = useState(false)
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null)
@@ -58,7 +63,7 @@ export default function ConciergeMascot() {
     }
     if (speechSupported) {
       const utter = new SpeechSynthesisUtterance(text)
-      utter.lang = 'ja-JP'
+      utter.lang = lang === 'ja' ? 'ja-JP' : 'en-US'
       utter.rate = 1.05
       window.speechSynthesis.cancel()
       window.speechSynthesis.speak(utter)
@@ -69,7 +74,7 @@ export default function ConciergeMascot() {
     const rule = matchRule(userText)
     const fallback = fallbackResponses[Math.floor(Math.random() * fallbackResponses.length)]
     const id = rule?.id ?? fallback.id
-    const response = rule?.response ?? fallback.text
+    const response = rule ? (lang === 'ja' ? rule.response : rule.responseEn) : lang === 'ja' ? fallback.text : fallback.textEn
     setExpression(rule?.expression ?? 'neutral')
     setMessage(response)
     speak(id, response)
@@ -86,7 +91,7 @@ export default function ConciergeMascot() {
     setOpen((v) => !v)
     if (!hasGreetedRef.current) {
       hasGreetedRef.current = true
-      speak('intro', INTRO_TEXT)
+      speak('intro', INTRO_TEXT[lang])
     }
   }
 
@@ -94,7 +99,7 @@ export default function ConciergeMascot() {
     const SpeechRecognitionCtor =
       (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition
     if (!SpeechRecognitionCtor) {
-      setMessage('このブラウザは音声認識に対応していないみたいです。テキストで話しかけてください。')
+      setMessage(t('companionNoSpeechRecognition'))
       return
     }
     if (listening) {
@@ -102,7 +107,7 @@ export default function ConciergeMascot() {
       return
     }
     const recognition: SpeechRecognitionLike = new SpeechRecognitionCtor()
-    recognition.lang = 'ja-JP'
+    recognition.lang = lang === 'ja' ? 'ja-JP' : 'en-US'
     recognition.interimResults = false
     recognition.continuous = false
     recognition.onresult = (event: any) => {
@@ -129,7 +134,7 @@ export default function ConciergeMascot() {
       {open && (
         <div className="rig-panel w-64 rounded-md border p-3 shadow-[0_0_20px_rgba(0,0,0,0.6)] sm:w-72">
           <div className="mb-2 flex items-center justify-between">
-            <span className="font-display text-[10px] tracking-widest text-gold">CONCIERGE</span>
+            <span className="font-display text-[10px] tracking-widest text-gold">{t('companionTitle')}</span>
             <button onClick={() => setOpen(false)} className="text-gray-500 hover:text-white">
               ×
             </button>
@@ -142,7 +147,7 @@ export default function ConciergeMascot() {
             <input
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="話しかけてみる..."
+              placeholder={t('companionPlaceholder')}
               className="min-w-0 flex-1 rounded-sm border border-rig-border bg-rig-panelStrong px-2 py-1 text-xs text-white placeholder:text-gray-600 focus:border-gold focus:outline-none"
             />
             <button
@@ -151,7 +156,7 @@ export default function ConciergeMascot() {
               className={`shrink-0 rounded-sm border px-2 text-xs ${
                 listening ? 'border-live bg-live/20 text-live animate-blink' : 'border-rig-border text-gray-400 hover:border-gold'
               }`}
-              title="音声で話しかける"
+              title={t('companionMicTitle')}
             >
               🎤
             </button>
@@ -159,7 +164,7 @@ export default function ConciergeMascot() {
               type="submit"
               className="shrink-0 rounded-sm bg-gold px-2 text-xs font-semibold text-black hover:bg-gold/80"
             >
-              送信
+              {t('companionSend')}
             </button>
           </form>
         </div>
@@ -167,7 +172,7 @@ export default function ConciergeMascot() {
       <button
         onClick={handleToggleOpen}
         className="rig-panel flex h-14 w-14 items-center justify-center rounded-full border-2 border-gold text-2xl shadow-[0_0_18px_rgba(203,161,53,0.4)]"
-        aria-label="AIマスコットを開く"
+        aria-label={t('companionOpenLabel')}
       >
         {EXPRESSION_FACE[expression]}
       </button>

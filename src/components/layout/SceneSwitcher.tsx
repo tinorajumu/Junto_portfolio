@@ -1,4 +1,5 @@
 import { usePortfolio } from '../../lib/PortfolioContext'
+import { useLanguage } from '../../i18n/LanguageContext'
 import type { SceneId } from '../../lib/types'
 
 const scenes: { id: SceneId; label: string; sub: string }[] = [
@@ -9,11 +10,12 @@ const scenes: { id: SceneId; label: string; sub: string }[] = [
 
 export default function SceneSwitcher() {
   const { activeScene, setActiveScene } = usePortfolio()
+  const { t } = useLanguage()
 
   return (
     <nav className="rig-panel flex h-full w-20 flex-col items-center gap-3 border-r py-4 sm:w-40">
       <div className="mb-2 hidden text-[10px] font-display tracking-widest text-gray-500 sm:block">
-        SWITCHER
+        {t('switcher')}
       </div>
       {scenes.map((scene) => {
         const isActive = activeScene === scene.id
