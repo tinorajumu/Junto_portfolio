@@ -31,24 +31,27 @@ export default function StatusBar() {
   const messageKey = TIME_MESSAGE_KEYS.find((m) => hour >= m.after && hour < m.before)?.key ?? 'timeMsgDay'
 
   return (
-    <div className="rig-panel rig-scanline flex h-11 w-full items-center gap-6 border-b px-4 text-xs font-display tracking-wide text-gray-300 overflow-hidden">
-      <span className="flex items-center gap-2 font-semibold text-live text-glow-live">
-        <span className="h-2 w-2 rounded-full bg-live animate-blink" />
+    <div
+      className="rig-panel rig-scanline flex h-11 w-full flex-nowrap items-center gap-[clamp(0.35rem,1.6vw,1.5rem)] overflow-hidden whitespace-nowrap border-b px-4 font-display tracking-wide text-gray-300"
+      style={{ fontSize: 'clamp(0.55rem, 2vw, 0.75rem)' }}
+    >
+      <span className="flex shrink-0 items-center gap-2 font-semibold text-live text-glow-live">
+        <span className="h-2 w-2 shrink-0 rounded-full bg-live animate-blink" />
         {t('live')}
       </span>
-      <span>
+      <span className="shrink-0">
         {t('time')}:{' '}
         <span className="text-white">
           {pad(now.getHours())}:{pad(now.getMinutes())}:{pad(now.getSeconds())}
         </span>
       </span>
-      <span>
+      <span className="shrink-0">
         {t('fishCount')}: <span className="text-gold">{feedCount}</span> {t('fishUnit')}
       </span>
-      <span>
+      <span className="shrink-0">
         {t('depth')}: <span className="text-bioluminescent">{depth}</span> m
       </span>
-      <span className="ml-auto hidden truncate text-gray-500 sm:block">{t(messageKey)}</span>
+      <span className="ml-auto hidden min-w-0 truncate text-gray-500 sm:block">{t(messageKey)}</span>
       <button
         onClick={toggleLang}
         className="shrink-0 rounded-sm border border-rig-border px-2 py-1 text-[10px] font-semibold text-gray-300 hover:border-gold/60"
