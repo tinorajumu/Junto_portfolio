@@ -51,7 +51,7 @@ if %errorlevel% neq 0 (
 
 echo.
 echo === Done! ===
-echo https://github.com/tinorajumu/junto-murai-portfolio
-echo https://tinorajumu.github.io/junto-murai-portfolio/
+echo https://github.com/tinorajumu/Junto_portfolio
+echo https://tinorajumu.github.io/Junto_portfolio/
 echo.
 pause
