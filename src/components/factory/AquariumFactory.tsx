@@ -17,7 +17,11 @@ const MOTION_FILES: Record<MotionName, string> = {
 const BODY_URL = `${BASE}models/body.fbx`
 const MASK_URL = `${BASE}models/mask.vrm`
 
-const MASK_SCALE = 100 // ボディのルートscale(0.01)を打ち消して実寸に合わせる
+// AIVtuberプロジェクト(animator.js)と同じ方式: マスクはFBXの骨に直接ぶら下げず、
+// 毎フレーム頭ボーンのワールド座標を追跡してVRMシーンを独立に配置する。
+const MASK_SIZE_RATIO = 1.0
+const MASK_OFFSET_Z = -0.1
+const MASK_OFFSET_Y = 0.0
 const EXPRESSION_PRESETS: Expression[] = ['happy', 'angry', 'sad', 'relaxed', 'surprised', 'neutral']
 
 interface Scene3D {
@@ -29,6 +33,8 @@ interface Scene3D {
   actions: Partial<Record<MotionName, THREE.AnimationAction>>
   body: THREE.Group | null
   vrm: VRM | null
+  headBone: THREE.Bone | null
+  maskHeadOffset: THREE.Vector3
   dojo: DojoFish[]
   dojoGroup: THREE.Group
   plantsGroup: THREE.Group
@@ -161,6 +167,8 @@ export default function AquariumFactory() {
       actions: {},
       body: null,
       vrm: null,
+      headBone: null,
+      maskHeadOffset: new THREE.Vector3(),
       dojo,
       dojoGroup,
       plantsGroup,
@@ -187,12 +195,30 @@ export default function AquariumFactory() {
     const ro = new ResizeObserver(resize)
     ro.observe(container)
 
+    const maskTargetPos = new THREE.Vector3()
+    const maskTargetQuat = new THREE.Quaternion()
+
     const animate = () => {
       state.frameId = requestAnimationFrame(animate)
       const delta = state.clock.getDelta()
       const t = state.clock.getElapsedTime()
       state.mixer?.update(delta)
       state.vrm?.update(delta)
+
+      // AIVtuber方式: FBXの頭ボーンのワールド座標にVRMお面シーンを毎フレーム追従させる
+      if (state.vrm && state.headBone) {
+        state.headBone.getWorldPosition(maskTargetPos)
+        state.headBone.getWorldQuaternion(maskTargetQuat)
+        state.vrm.scene.quaternion.copy(maskTargetQuat)
+        state.vrm.scene.rotateY(Math.PI)
+        const rotatedOffset = state.maskHeadOffset
+          .clone()
+          .multiplyScalar(MASK_SIZE_RATIO)
+          .applyQuaternion(state.vrm.scene.quaternion)
+        state.vrm.scene.position.copy(maskTargetPos).sub(rotatedOffset)
+        state.vrm.scene.translateZ(MASK_OFFSET_Z)
+        state.vrm.scene.translateY(MASK_OFFSET_Y)
+      }
 
       const scattering = performance.now() < state.scatterUntil
       animateDojoSchool(state.dojo, t, scattering)
@@ -259,20 +285,37 @@ export default function AquariumFactory() {
         bind('jump', jumpClip)
         actions.idle?.play()
 
+        // AIVtuber方式: マスクはFBXの骨に親子付けせず、シーン直下に独立して置き、
+        // 毎フレームFBX頭ボーンのワールド座標を追跡する（animate内で実施）。
         const headBone = findBoneByName(body, 'head')
-        if (headBone) {
-          headBone.add(vrm.scene)
-          vrm.scene.scale.setScalar(MASK_SCALE)
-          vrm.scene.position.set(0, 0.02, 0.03)
-          vrm.scene.rotation.y = Math.PI
-        } else {
-          body.add(vrm.scene)
+        vrm.scene.scale.setScalar(MASK_SIZE_RATIO)
+        vrm.scene.updateMatrixWorld(true)
+        const vrmHeadBone = vrm.humanoid?.getRawBoneNode('head')
+        const maskHeadOffset = new THREE.Vector3()
+        if (vrmHeadBone) {
+          vrmHeadBone.getWorldPosition(maskHeadOffset)
         }
+        // 素体(FBX)側に元々きちんとしたベース顔テクスチャ・口があるため、
+        // お面側のベース肌メッシュと口内メッシュは非表示にし、
+        // 目・眉・アイラインなどのディテールのみ重ねる。
+        // （SKINはこのモデルでは白く覆ってしまい、FaceMouthはあごの下に肥大表示されるため）
+        const HIDDEN_MASK_PARTS = ['_SKIN', 'FACEMOUTH']
+        vrm.scene.traverse((child) => {
+          const mesh = child as THREE.Mesh
+          if (!(mesh as any).isMesh) return
+          const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material]
+          if (mats.some((mat) => HIDDEN_MASK_PARTS.some((part) => mat?.name?.toUpperCase().includes(part)))) {
+            mesh.visible = false
+          }
+        })
+        scene.add(vrm.scene)
 
         state.mixer = mixer
         state.actions = actions
         state.body = body
         state.vrm = vrm
+        state.headBone = headBone
+        state.maskHeadOffset = maskHeadOffset
 
         setLoading(false)
       } catch (err) {
@@ -293,35 +336,19 @@ export default function AquariumFactory() {
   }, [])
 
   // ビルド状態（年表エネルギー到達）の反映
+  // 仕様書通り「エネルギーが溜まるまでモデルは出現しない」を採用し、
+  // 半透明プレビューではなく可視/不可視の切り替えにする
+  // （マルチマテリアルのモデルでopacityを下げると意図せず消えてしまうため）。
   useEffect(() => {
     const state = sceneRef.current
     if (!state || !state.body) return
 
-    const applyOpacity = (root: THREE.Object3D, exclude: THREE.Object3D | null, opacity: number) => {
-      const walk = (node: THREE.Object3D) => {
-        if (exclude && node === exclude) return
-        const mesh = node as THREE.Mesh
-        if ((mesh as any).isMesh) {
-          const mat = mesh.material as THREE.MeshStandardMaterial
-          if (mat) {
-            mat.transparent = opacity < 1
-            mat.opacity = opacity
-          }
-        }
-        node.children.forEach(walk)
-      }
-      walk(root)
-    }
-
+    state.body.visible = built
     if (built && !state.built) {
       state.buildStart = performance.now()
-      applyOpacity(state.body, state.vrm?.scene ?? null, 1)
-      if (state.vrm) applyOpacity(state.vrm.scene, null, 1)
     }
     if (!built) {
       state.body.scale.setScalar(0.01)
-      applyOpacity(state.body, state.vrm?.scene ?? null, 0.25)
-      if (state.vrm) applyOpacity(state.vrm.scene, null, 0.25)
     }
     state.built = built
   }, [built, loading])
@@ -338,11 +365,11 @@ export default function AquariumFactory() {
     nextAction.reset().fadeIn(0.25).play()
   }, [motion, loading])
 
-  // お面の着脱
+  // お面の着脱（未ビルド時はモデル自体が非表示なのでお面も連動して隠す）
   useEffect(() => {
     const state = sceneRef.current
-    if (state?.vrm) state.vrm.scene.visible = maskOn
-  }, [maskOn, loading])
+    if (state?.vrm) state.vrm.scene.visible = maskOn && built
+  }, [maskOn, built, loading])
 
   // 表情変更
   useEffect(() => {

@@ -1,5 +1,6 @@
 import { profile } from '../../data/profile'
 import { usePortfolio } from '../../lib/PortfolioContext'
+import EventsSection from './EventsSection'
 
 export default function ProfileScene() {
   const { setActiveScene } = usePortfolio()
@@ -50,6 +51,8 @@ export default function ProfileScene() {
             年表を見る →
           </button>
         </div>
+
+        <EventsSection />
       </div>
     </div>
   )

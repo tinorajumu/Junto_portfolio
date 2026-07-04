@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { fallbackResponses, mascotRules } from '../../data/mascotRules'
+import { getVoiceUrl } from '../../lib/voice'
 import type { Expression } from '../../lib/types'
+
+const INTRO_TEXT = 'こんにちは！このサイトの案内人です。何か話しかけてみてください。'
 
 const EXPRESSION_FACE: Record<Expression, string> = {
   happy: '(＾▽＾)',
@@ -34,19 +37,27 @@ type SpeechRecognitionLike = {
 export default function ConciergeMascot() {
   const [open, setOpen] = useState(false)
   const [input, setInput] = useState('')
-  const [message, setMessage] = useState('こんにちは！このサイトの案内人です。何か話しかけてみてください。')
+  const [message, setMessage] = useState(INTRO_TEXT)
   const [expression, setExpression] = useState<Expression>('happy')
   const [listening, setListening] = useState(false)
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null)
+  const audioRef = useRef<HTMLAudioElement | null>(null)
+  const hasGreetedRef = useRef(false)
   const speechSupported = typeof window !== 'undefined' && 'speechSynthesis' in window
 
-  const respond = (userText: string) => {
-    const rule = matchRule(userText)
-    const response = rule?.response ?? fallbackResponses[Math.floor(Math.random() * fallbackResponses.length)]
-    setExpression(rule?.expression ?? 'neutral')
-    setMessage(response)
+  // 生成済みの音声ファイル（src/assets/voice/<id>.*）があればそれを再生し、
+  // 無ければブラウザの音声合成（Web Speech API）にフォールバックする。
+  const speak = (id: string, text: string) => {
+    const voiceUrl = getVoiceUrl(id)
+    if (voiceUrl) {
+      audioRef.current?.pause()
+      const audio = new Audio(voiceUrl)
+      audioRef.current = audio
+      audio.play().catch(() => {})
+      return
+    }
     if (speechSupported) {
-      const utter = new SpeechSynthesisUtterance(response)
+      const utter = new SpeechSynthesisUtterance(text)
       utter.lang = 'ja-JP'
       utter.rate = 1.05
       window.speechSynthesis.cancel()
@@ -54,11 +65,29 @@ export default function ConciergeMascot() {
     }
   }
 
+  const respond = (userText: string) => {
+    const rule = matchRule(userText)
+    const fallback = fallbackResponses[Math.floor(Math.random() * fallbackResponses.length)]
+    const id = rule?.id ?? fallback.id
+    const response = rule?.response ?? fallback.text
+    setExpression(rule?.expression ?? 'neutral')
+    setMessage(response)
+    speak(id, response)
+  }
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!input.trim()) return
     respond(input.trim())
     setInput('')
+  }
+
+  const handleToggleOpen = () => {
+    setOpen((v) => !v)
+    if (!hasGreetedRef.current) {
+      hasGreetedRef.current = true
+      speak('intro', INTRO_TEXT)
+    }
   }
 
   const toggleListening = () => {
@@ -90,6 +119,7 @@ export default function ConciergeMascot() {
   useEffect(() => {
     return () => {
       recognitionRef.current?.stop()
+      audioRef.current?.pause()
       if (speechSupported) window.speechSynthesis.cancel()
     }
   }, [speechSupported])
@@ -135,7 +165,7 @@ export default function ConciergeMascot() {
         </div>
       )}
       <button
-        onClick={() => setOpen((v) => !v)}
+        onClick={handleToggleOpen}
         className="rig-panel flex h-14 w-14 items-center justify-center rounded-full border-2 border-gold text-2xl shadow-[0_0_18px_rgba(203,161,53,0.4)]"
         aria-label="AIマスコットを開く"
       >
